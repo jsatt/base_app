@@ -49,3 +49,8 @@ try:
     from settings_override import *
 except ImportError:
     pass
+
+try:
+    INSTALLED_APPS += LOCAL_INSTALLED_APPS
+except NameError:
+    pass
