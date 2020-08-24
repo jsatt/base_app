@@ -1,1 +1,10 @@
-Django
+Django>=3.1
+celery>=4.4
+django-celery-beat
+django-environ
+django-extensionsdjango-filter
+django-health-check
+django-redis
+django-storages
+djangorestframework>=3.11
+python-json-logger
