@@ -1,0 +1,78 @@
+version: '3.8'
+
+volumes:
+  python-pkgs:
+  db-data:
+  cache-data:
+
+x-common: &app-common
+  build:
+    context: .
+  env_file: .env
+  environment:
+    DATABASE_URL: psql://db/base_app
+    DATABASE_USER: postgres
+    DATABASE_PASSWORD: postgres
+    CACHE_URL: redis://cache:6379/0
+    CELERY_BROKER_URL: redis://cache:6379/1
+    CELERY_RESULT_BACKEND: redis://cache:6379/2
+  user: ${UID:-app_user}
+  volumes:
+    - ${COMPOSE_APP_PATH:-.}:/usr/src/app:delegated
+    - ${COMPOSE_PYTHON_PKG_PATH:-python-pkgs}:/usr/local/lib/python3.8/site-packages:z
+
+services:
+  app:
+    <<: *app-common
+    command:
+      - uvicorn
+      - base_app.asgi:application
+      - --workers=${COMPOSE_WEB_WORKERS:-4}
+      - --host=0.0.0.0
+      - --port=8000
+      - --reload
+      - --log-level=${COMPOSE_WEB_LOG_LEVEL:-info}
+      - --lifespan=off
+    restart: unless-stopped
+    depends_on:
+      - cache
+      - db
+    tty: true
+    ports:
+      - "${COMPOSE_WEB_PORT:-8002}:8000"
+
+  task_worker:
+    <<: *app-common
+    command:
+      - celery
+      - worker
+      - --events
+      - --app
+      - base_app.celery
+      - --loglevel=${COMPOSE_TASK_LOG_LEVEL:-info}
+      - --pool=gevent
+      - --concurrency=${COMPOSE_TASK_CONCURRENCY:-100}
+    restart: unless-stopped
+    depends_on:
+      - cache
+      - db
+
+  db:
+    image: postgres:12-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: base_app
+    restart: unless-stopped
+    ports:
+      - '${COMPOSE_DB_PORT:-0}:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  cache:
+    image: redis:5-alpine
+    restart: unless-stopped
+    volumes:
+      - cache-data:/var/lib/redis
+    ports:
+      - '${COMPOSE_CACHE_PORT:-0}:6379'

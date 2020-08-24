@@ -10,6 +10,13 @@ djangorestframework>=3.11
 python-json-logger
 structlog
 
+# infra
+gevent
+gunicorn
+psycopg2-binary
+redis
+uvicorn
+
 # tests, linting, code quality
 bandit
 django-stubs
