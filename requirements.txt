@@ -9,3 +9,20 @@ django-storages
 djangorestframework>=3.11
 python-json-logger
 structlog
+
+# tests, linting, code quality
+bandit
+django-stubs
+djangorestframework-stubs
+flake8
+flake8-commas
+flake8-isort
+isort
+mypy
+prospector
+pytest
+pytest-blockage
+pytest-cov
+pytest-django
+pytest-mock
+pytest-xdist
