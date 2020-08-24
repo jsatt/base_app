@@ -2,6 +2,7 @@ import logging
 import os
 
 import environ
+import structlog
 
 BASE_DIR = (environ.Path(__file__) - 2)()
 env = environ.Env()
@@ -115,6 +116,10 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
+        'json': {
+            'class': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': log_format,
+        },
         'plain': {
             'format': log_format,
         },
@@ -158,6 +163,18 @@ LOGGING = {
         },
     },
 }
+
+structlog.configure(
+    processors=[
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    context_class=structlog.threadlocal.wrap_dict(dict),
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
 
 #########
 # REST FRAMEWORK

@@ -8,3 +8,4 @@ django-redis
 django-storages
 djangorestframework>=3.11
 python-json-logger
+structlog
