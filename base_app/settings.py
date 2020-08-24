@@ -4,9 +4,10 @@ import os
 import environ
 import structlog
 
+from utils.environment import Env
+
 BASE_DIR = (environ.Path(__file__) - 2)()
-env = environ.Env()
-env.read_env(os.path.join(BASE_DIR, '.env'))
+env = environ.Env(os.path.join(BASE_DIR, '.env'))
 
 BASE_URL = env.str('BASE_URL', default='localhost')
 TESTING = env.bool('TESTING', default=False)
@@ -24,11 +25,15 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[BASE_URL])
 
 # Databases
 DATABASES = {
-    'default': env.db('DATABASE_URL', default="sqlite://:memory:"),
+    'default': env.db_opts('DATABASE_URL', default="sqlite://:memory:", options={
+        'CONN_MAX_AGE': env.int('DATABASE_CONNECTION_AGE', default=600),
+    }),
 }
 
 CACHES = {
-    'default': env.cache('CACHE_URL', default='dummycache://'),
+    'default': env.cache_opts('CACHE_URL', default='dummycache://', options={
+        'OPTIONS': {'SERIALIZER': 'django_redis.serializers.json.JSONSerializer'},
+    }),
 }
 
 # LOCALE
