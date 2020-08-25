@@ -13,6 +13,7 @@ env = environ.Env(os.path.join(BASE_DIR, '.env'))
 BASE_URL = env.str('BASE_URL', default='localhost')
 TESTING = env.bool('TESTING', default=False)
 USE_DATADOG = env.bool('USE_DATADOG', default=False)
+USE_SENTRY = env.bool('USE_SENTRY', default=False)
 
 #########
 # DJANGO SETTINGS
@@ -182,6 +183,31 @@ structlog.configure(
     wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
 )
+
+#########
+# SENTRY
+#########
+if USE_SENTRY:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    logging_integration = LoggingIntegration(
+        level=getattr(logging, env.str('SENTRY_LOG_LEVEL', default='INFO')),
+        event_level=getattr(logging, env.str('SENTRY_EVENT_LEVEL', default='ERROR')),
+    )
+
+    sentry_sdk.init(
+        dsn=env.str('SENTRY_DSN', default=''),
+        environment=env.str('SENTRY_ENVIRONMENT', default='development'),
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            logging_integration,
+        ],
+        send_default_pii=True,
+    )
 
 #########
 # DATADOG
