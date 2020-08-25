@@ -1,0 +1,50 @@
+#!/bin/bash
+set -e
+script_base=$(dirname "$0")
+cd $script_base/..
+
+source $script_base/tools
+
+detach=
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -h|--help|?)
+            echo "Rebuild, create, run and attach all or specfic Docker services."
+            echo
+            cecho "Usage: $(basename $0) <options> [SERVICE...]" default bold
+            echo
+            echo "Options:"
+            echo "  -d                  Detached mode: Run containers in background."
+            echo "  -h  --help          This help message"
+            echo
+            echo "Run 'docker-compose up --help' to see more options"
+            exit 0
+            ;;
+        -d|--detach)
+            detach=1
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+args=$@
+
+teardown() {
+    $script_base/stop $args
+}
+trap "teardown" INT
+
+docker-compose up -d $args
+
+if [ "$detach" ]; then
+    cecho "Starting in detached mode. Use '$script_base/attach <service>' to view output." blue bold
+else
+    docker-compose logs -f $args || teardown
+fi
