@@ -17,6 +17,10 @@ psycopg2-binary
 redis
 uvicorn
 
+# tracking
+datadog
+ddtrace
+
 # tests, linting, code quality
 bandit
 django-stubs

@@ -3,6 +3,7 @@ import os
 
 import environ
 import structlog
+from ddtrace import tracer as dd_tracer
 
 from utils.environment import Env
 
@@ -11,6 +12,7 @@ env = environ.Env(os.path.join(BASE_DIR, '.env'))
 
 BASE_URL = env.str('BASE_URL', default='localhost')
 TESTING = env.bool('TESTING', default=False)
+USE_DATADOG = env.bool('USE_DATADOG', default=False)
 
 #########
 # DJANGO SETTINGS
@@ -180,6 +182,53 @@ structlog.configure(
     wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
 )
+
+#########
+# DATADOG
+#########
+if USE_DATADOG:
+    import datadog
+    from ddtrace import config as dd_config
+
+    datadog_service = env.str('DD_SERVICE', default='base_app')
+    datadog_environment = env.str('DD_ENV', default='development')
+    datadog_version = env.str('DD_VERSION', default='')
+    datadog_agent_hostname = env.str('DD_AGENT_SERVICE_HOST', default='localhost')
+    datadog_agent_port = env.str('DD_AGENT_SERVICE_PORT', default='8125')
+    datadog_statsd_port = env.str('DD_STATSD_SERVICE_PORT', default='8126')
+    datadog_tags = env.list('DD_TAGS', default=[])
+
+    dd_tracer.configure(
+        enabled=True,
+        hostname=datadog_agent_hostname,
+        port=datadog_agent_port,
+    )
+    dd_tracer.set_tags({
+        'env': datadog_environment,
+        'version': datadog_version,
+        **dict(t.split(':') for t in datadog_tags),
+    })
+    dd_config.analytics_enabled = True
+    dd_config.health_metrics_enabled = True
+    dd_config.celery['analytics_enabled'] = True
+    dd_config.celery['distributed_tracing'] = True
+    dd_config.celery['producer_service_name'] = f'{datadog_service}-celery-queue'
+    dd_config.celery['worker_service_name'] = f'{datadog_service}-celery'
+    dd_config.django['analytics_enabled'] = True
+    dd_config.django['cache_service_name'] = f'{datadog_service}-cache'
+    dd_config.django['database_service_name_prefix'] = f'{datadog_service}-'
+    dd_config.django['service_name'] = datadog_service
+    dd_config.postgres['analytics_enabled'] = True
+    dd_config.requests['analytics_enabled'] = True
+
+    datadog.initialize(
+        statsd_host=datadog_agent_hostname,
+        statsd_port=datadog_statsd_port,
+        statsd_namespace=datadog_service,
+        statsd_constant_tags=datadog_tags,
+    )
+else:
+    dd_tracer.configure(enabled=False)
 
 #########
 # REST FRAMEWORK

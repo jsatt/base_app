@@ -1,9 +1,12 @@
 import os
 
 from celery import Celery, signals
+from ddtrace import patch_all
 from django.conf import settings
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'base_app.settings')
+if settings.USE_DATADOG and sys.argv[0].endswith('celery'):  # pragma: no cover
+    patch_all()
 app = Celery('base_app')
 app.config_from_object(settings, namespace='CELERY')
 app.autodiscover_tasks()
