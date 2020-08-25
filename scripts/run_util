@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 util=$1
 shift

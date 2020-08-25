@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 force=
 use_existing=
@@ -64,7 +65,7 @@ fi
 PLATFORM="$(detect_platform)"
 
 case "$PLATFORM" in
-    "Debian")
+    "Debian" | "Ubuntu")
         if [[ "$PATH" != *"$HOME/.local/bin"* ]]; then
             cecho "It is recommended that you install docker-compose at the user level. This requires adding" yellow bold
             cecho "$HOME/.local/bin to your PATH in your .profile, .zprofile or equivalent. " yellow bold

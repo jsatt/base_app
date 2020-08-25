@@ -1,18 +1,25 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
-watch=
+flags="--nomigrations --capture=no"
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         -w|--watch)
-            watch=1
+            flags+=" --looponfail"
+            ;;
+        -n|--new-db)
+            flags+=" --create-db"
+            ;;
+        -c|--with-coverage)
+            flags+=" --cov"
             ;;
         -h|--help)
             echo "Run unit tests."
@@ -21,7 +28,10 @@ while [[ $# -gt 0 ]]; do
             echo
             echo "Options:"
             echo "  -w  --watch         Rerun tests when changes are made"
+            echo "  -n  --new-db        Re-create database."
             echo "  -h  --help          This help message"
+            echo
+            echo "Note: any additional options provided will be passed to pytest."
             exit 0
             ;;
         *)
@@ -32,8 +42,9 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
-if [ "$watch" ]; then
-    docker-compose exec app pytest --looponfail --nomigrations $@
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    runner="docker-compose run --rm app"
 else
-    docker-compose exec app pytest --nomigrations $@
+    runner=
 fi
+$runner pytest $flags $@

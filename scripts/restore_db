@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 no_input=
 no_migrate=
-skip_check=
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -19,9 +19,6 @@ while [[ $# -gt 0 ]]; do
         --no-migrate)
             no_migrate=1
             ;;
-        --skip-check)
-            skip_check=1
-            ;;
         -h|--help|?)
             echo "Drop existing database service and restore from database backups"
             echo
@@ -30,7 +27,6 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "      --no-migrate    Skip running migrations"
             echo "  -y  --no-input      Assume yes on all user input"
-            echo "      --skip-check    Don't check or fail if dump file missing"
             echo "  -h  --help          This help message"
             exit 0
             ;;
@@ -42,23 +38,38 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
+if [ ! $(can_run_docker $DEV_DOCKER_WORKFLOW db) ]; then
+    cecho "This script currently only supports db restores when the db instance is managed by Docker." red bold
+    cecho "Please manually restore the db or review your .env file." red bold
+    exit 2
+fi
+
 shopt -s nullglob
 dump_files=( docker/init/db/*.sql.gz docker/init/db/*.sql )
-if [ ! "$skip_check" ]; then
-    if (( ! ${#dump_files[@]} )); then
-        cecho "No database dumps were found to restore from. Please retrieve a database dump file" red bold
-        cecho "and place is in $(resolve_path "$script_base/../docker/init/db")." red bold
+if (( ! ${#dump_files[@]} )); then
+    cecho "No database dumps were found to restore from. Please retrieve a database dump file" red bold
+    cecho "and place it in $(resolve_path "$script_base/../docker/init/db")." red bold
+    if [ "$no_input"]; then
         exit 1
+    else
+        cecho "Otherwise the database will be created empty." red bold
+        read -n1 -r -p "Press 'Y' to continue or any other key to cancel..." key1
+        echo
+
+        if [ ! "$key1" ] || [[ "yY" != *"$key1"* ]]; then
+            cecho "Aborting." red
+            exit 0
+        fi
     fi
 fi
 
 if [ ! "$no_input" ]; then
     cecho "Warning this will delete all data in your existing database service and replace" yellow bold
     cecho "it with data from any database dumps located in '$(resolve_path "$script_base/../docker/init/db")'." yellow bold
-    read -n1 -r -p "Press 'Y' to continue or any other key to cancel..." key
+    read -n1 -r -p "Press 'Y' to continue or any other key to cancel..." key2
+    echo
 
-    if [ ! "$key" ] || [[ "yY" != *"$key"* ]]; then
-        echo
+    if [ ! "$key2" ] || [[ "yY" != *"$key2"* ]]; then
         cecho "Aborting." red
         exit 0
     fi
@@ -67,8 +78,8 @@ fi
 echo
 cecho "Deleting old data..." default bold
 $script_base/stop
-docker-compose rm -svf db app
-docker volume rm -f app_db-volume
+docker-compose rm -svf db
+docker volume rm -f base_app_db-data
 
 echo
 cecho "Restoring data..." default bold

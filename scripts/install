@@ -1,12 +1,14 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 no_save=
 no_input=
+no_pkg=
 dev=
 install_type=
 
@@ -23,6 +25,9 @@ while [[ $# -gt 0 ]]; do
         --dev)
             dev=1
             ;;
+        --)
+            no_pkg=1
+            ;;
         -h|--help|?)
             echo "Install a package."
             echo
@@ -30,11 +35,11 @@ while [[ $# -gt 0 ]]; do
             echo
             echo "Package Types:"
             echo "  py  | python"
-            echo "  apt | linux"
+            echo "  apt | linux | system"
             echo
             echo "Options:"
-            echo "      --dev           Install package for development only (JS and Python only)"
-            echo "      --no-save       Do not save packages, install only (JS and Python only)"
+            echo "      --dev           Install package for development only (Python only)"
+            echo "      --no-save       Do not save packages, install only (Python only)"
             echo "  -y  --no-input      Assume yes for all user input"
             echo "  -h  --help          This help message"
             exit 0
@@ -51,23 +56,55 @@ install_type=$1
 shift
 args=$@
 
-if [ ! "$args" ]; then
+if [ ! "$args" ] && [ ! "$no_pkg" ]; then
     cecho "You must provide at least one package name to install." red bold
     exit 2
 fi
 
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    runner="docker-compose run --rm --no-deps -u root app"
+    in_docker=1
+else
+    runner="sudo"
+    in_docker=
+fi
+
 case $install_type in
     py|python)
-        docker-compose exec -u root app python -m pip install $args
+        if [ "$no_save" ]; then
+            $runner pip install $args
+        else
+            flags=
+            if [ "$dev" ]; then
+                flags+=" --dev"
+            fi
+            if [ "$no_input" ]; then
+                flags+=" --no-interaction"
+            fi
+            if [ "$no_pkg" ]; then
+                $runner pip install $flags $args
+            else
+                $runner pip install $flags $args
+            fi
+        fi
         ;;
-    apt|linux)
+    apt|linux|system)
+        if [ ! "$in_docker" ] && [ ! " ('Debian' 'Ubuntu')[@] " =~ "$(detect_platform)" ]; then
+            cecho "This script cannot handle installs for your native system, $PLATFORM." red bold
+            cecho "Please install the package manually or review your .env file." red bold
+            exit 3
+        fi
+
+        flags=
         if [ ! "$no_input" ]; then
             cecho "Linux packages are not saved upon install. If these packages are needed " yellow bold
-            cecho "permenantly, please make sure to update '$(resolve_path "$script_base/..")/Dockerfile' accordingly." yellow bold
+            cecho "permenantly, please make sure to update '$(resolve_path "$script_base/../docker")/Dockerfile' accordingly." yellow bold
             read -n1 -r -p "Press any key to continue..."
+        else
+            flags+=" -y"
         fi
-        docker-compose exec -u root app apt-get update
-        docker-compose exec -u root app apt-get install -y $args
+        $runner apt-get update
+        $runner apt-get install $flags $args
         ;;
     *)
         cecho "You must provide a valid package type to install. Use '$(basename $0) --help' for most information." yellow bold

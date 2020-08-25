@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -12,13 +13,16 @@ while [[ $# -gt 0 ]]; do
         -h|--help|?)
             echo "Run a specific service in interactive debug mode."
             echo
-            cecho "Usage: $(basename $0) <options> SERVICE" default bold
+            cecho "Usage: $(basename $0) <options> [<SERVICE>]" default bold
+            echo
+            echo "Services:"
+            echo "$(docker-compose config --services)"
             echo
             echo "Options:"
             echo "  -h  --help          This help message"
             echo
             echo "Run 'docker-compose up --help' to see more options"
-           exit 0
+            exit 0
             ;;
         *)
             POSITIONAL+=("$key")
@@ -28,13 +32,19 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
-service=$1
-if [[ ! $service ]]; then
-    cecho "You must provide the name of the service you would like to debug." red bold
-    exit 1;
+if [ "$1" ]; then
+    service=$1
+else
+    service=app
 fi
 
-cecho "Restarting '$service' in interactive debug mode. Kill the process to return to normal." yellow bold
-docker-compose stop $service
-docker-compose run --name ${service}_debug --rm --service-ports $service \
-    && docker-compose up -d $service
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW $service) ]; then
+    cecho "Restarting '$service' in interactive debug mode. Kill the process to return to normal." yellow bold
+    docker-compose stop $service
+    docker-compose run --name base_app_debug-$service --rm --service-ports $service \
+        && docker-compose up -d $service
+else
+    cecho "Since the '$service' service is not managed by Docker, we cannot restart in debug mode." red bold
+    cecho "Please start debug mode for this servie manually or review your .env file." red bold
+    exit 1
+fi

@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 detach=
+quiet=
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -23,6 +25,9 @@ while [[ $# -gt 0 ]]; do
             echo "Run 'docker-compose up --help' to see more options"
             exit 0
             ;;
+        -q|--quiet)
+            quiet=1
+            ;;
         -d|--detach)
             detach=1
             ;;
@@ -35,16 +40,62 @@ done
 set -- "${POSITIONAL[@]}"
 
 args=$@
+allowed=$(allowed_services $DEV_DOCKER_WORKFLOW)
+
+run_docker=
+docker_args=
+case $DEV_DOCKER_WORKFLOW in
+    full)
+        run_docker=1
+        docker_args=$args
+        ;;
+    deps)
+        if [ "$args" ]; then
+            services=
+            for svc in $allowed; do
+                if [[ " $args[@] " =~ $svc ]]; then
+                    services+=" $svc"
+                fi
+            done
+            echo $services
+            if [ "$services" ]; then
+                run_docker=1
+                docker_args=$services
+            fi
+        else
+            if [ "$allowed" ]; then
+                run_docker=1
+                docker_args=$allowed
+            fi
+        fi
+        ;;
+    none)
+        ;;
+esac
+
 
 teardown() {
     $script_base/stop $args
 }
 trap "teardown" INT
 
-docker-compose up -d $args
 
-if [ "$detach" ]; then
-    cecho "Starting in detached mode. Use '$script_base/attach <service>' to view output." blue bold
-else
-    docker-compose logs -f $args || teardown
+if [ "$run_docker" ]; then
+
+    #if [ ! "$(docker network ls | grep app_global)" ]; then
+        #cecho "Shared network not found, creating..." yellow bold
+        #docker network create --driver=bridge app_global
+    #fi
+
+    docker-compose up -d $docker_args
+
+    if [ "$detach" ]; then
+        cecho "Starting in detached mode. Use '$script_base/attach <service>' to view output." blue bold
+    else
+        docker-compose logs -f --tail=100 $docker_args || teardown
+    fi
+elif [ ! "$quiet" ]; then
+    cecho "There are no services that can be managed using this script. Please launch the" red bold
+    cecho "service manually or review your .env file." red bold
+    exit 1
 fi

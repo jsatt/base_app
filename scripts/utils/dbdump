@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/../tools
 cd $script_base/../..
 
-source $script_base/../tools
+load_env
 
 database=base_app
 output=
@@ -54,6 +55,12 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW db) ]; then
+    runner="docker-compose exec -u postgres db"
+else
+    runner=
+fi
+
 if [ ! "$output" ]; then
     if [ "$dump_all" ]; then
         database=full_database
@@ -67,14 +74,14 @@ fi
 
 if [ "$nozip" ]; then
     if [ "$dump_all" ]; then
-        docker-compose exec -u postgres db sh -c "pg_dumpall" > $output
+        $runner pg_dumpall > $output
     else
-        docker-compose exec -u postgres db sh -c "pg_dump $database" > $output
+        $runner pg_dump -U postgres -t public.* -O -c -x --if-exists -T spatial_ref_sys $database > $output
     fi
 else
     if [ "$dump_all" ]; then
-        docker-compose exec -u postgres db sh -c "pg_dumpall" | gzip > $output
+        $runner pg_dumpall | gzip > $output
     else
-        docker-compose exec -u postgres db sh -c "pg_dump $database" | gzip > $output
+        $runner pg_dump -U postgres -t public.* -O -c -x --if-exists -T spatial_ref_sys $database | gzip > $output
     fi
 fi

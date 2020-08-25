@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 no_input=
 
@@ -17,10 +18,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help|?)
             echo "Reset environment after a large repository update."
             echo
-            cecho "Usage: $(basename $0) <options> <SERVICE>]" default bold
-            echo
-            echo "Services:"
-            echo "$(docker-compose config --services)"
+            cecho "Usage: $(basename $0) <options>" default bold
             echo
             echo "Options:"
             echo "  -y  --no-input      Assume yes for all user input"
@@ -48,12 +46,19 @@ fi
 
 $script_base/cleanup --no-input
 
-echo
-cecho "Rebuilding environment..." default bold
-docker-compose build
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    echo
+    cecho "Rebuilding environment..." default bold
+    docker-compose build
+
+else
+    echo
+    cecho "Installing Python requirements..." default bold
+    pip install -r requirements.txt
+fi
 
 echo
 cecho "Running database migrations..." default bold
-$script_base/start -d app db
+$script_base/start -q -d app db
 $script_base/migrate
-$script_base/stop
+$script_base/stop -q

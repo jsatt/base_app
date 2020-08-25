@@ -33,9 +33,10 @@ cecho(){
 # detect_platform
 # detects Debian, OS X and OS X + brew
 detect_platform() {
-    if [ "$(which apt-get)" ]; then
-        echo "Debian"
-    elif [[ "$(uname -s)" = "Darwin" ]]; then
+    platform=$(uname -s)
+    if [[ $platform = "Linux" ]]; then
+        echo $(lsb_release -is)
+    elif [[ $platform = "Darwin" ]]; then
         if [ "$(which brew)" ]; then
             echo "OSX_BREW"
         else
@@ -75,4 +76,42 @@ wait_until_false(){
     while [[ $(eval $@) ]]; do
         sleep 1
     done
+}
+
+load_env(){
+    if [ ! "$NO_ENV_FILE" ]; then
+        if [ ! -e '.env' ]; then
+            cecho "Could not find an environment settings file (.env). Would you like to start one now?" yellow bold
+            read -n1 -r -p "Press 'Y' to generate file and continue or any other key to cancel..." key
+            echo
+            if [ ! "$key" ] || [[ "yY" != *"$key"* ]]; then
+                echo
+                cecho "An environment settings file (.env) is required. Please make a copy from .env-dist and try again." red
+                exit 1
+            fi
+
+            cp .env-dist .env
+        fi
+
+        source .env
+    fi
+}
+
+allowed_services(){
+    workflow=$1
+    if [ "$workflow" = "full" ]; then
+        echo "app" "task_worker" "db" "cache"
+    elif [ "$workflow" = "deps" ]; then
+        echo "db" "cache"
+    fi
+}
+
+
+can_run_docker(){
+    workflow=$1
+    target=$2
+
+    if [[ " $(allowed_services $DEV_DOCKER_WORKFLOW)[@] " =~ "$target" ]]; then
+        echo 1
+    fi
 }

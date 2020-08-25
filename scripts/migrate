@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 cmd=
 case $1 in
@@ -71,13 +72,19 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    runner="docker-compose run --rm -u $UID app"
+else
+    runner=
+fi
+
 case $cmd in
     run)
         opts=
         if [ "$fake" ]; then
             opts+="--fake "
         fi
-        docker-compose exec app ./manage.py migrate --noinput $opts $@
+        $runner ./manage.py migrate --noinput $opts $@
         ;;
     make)
         opts=
@@ -90,9 +97,9 @@ case $cmd in
         if [ "$name" ]; then
             opts+="--name $name "
         fi
-        docker-compose exec -u $UID app ./manage.py makemigrations $opts $@
+        $runner ./manage.py makemigrations $opts $@
         ;;
     show)
-        docker-compose exec app ./manage.py showmigrations $@
+        $runner ./manage.py showmigrations $@
         ;;
 esac

@@ -1,16 +1,17 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         -h|--help|?)
-            echo "Attach to a running service."
+            echo "Watch output of a running service."
             echo
             cecho "Usage: $(basename $0) <options> <SERVICE>" default bold
             echo
@@ -28,5 +29,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 set -- "${POSITIONAL[@]}"
+target=$1
 
-docker-compose logs -f $1
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW $target) ]; then
+    docker-compose logs -f $target
+else
+    cecho "Cannot attach to '$target' while DEV_DOCKER_WORKFLOW set as '$DEV_DOCKER_WORKFLOW'. Please review your .env file." red bold
+    exit 1
+fi

@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 target=app
 
@@ -21,11 +22,11 @@ while [[ $# -gt 0 ]]; do
             cecho "Usage: $(basename $0) [<CONSOLE TYPE>]" default bold
             echo
             echo "Console Types:"
-            echo "  bash         - Bash (Default)"
-            echo "  sudo         - Bash as sudo"
-            echo "  py  | python - Django Shell Plus w/ IPython"
-            echo "  sql | psql   - PostgreSQL as root"
-            echo "  redis        - Redis"
+            echo "  bash           - Bash (Default)"
+            echo "  sudo           - Bash as sudo"
+            echo "  py    | python - Django Shell Plus w/ IPython"
+            echo "  sql   | psql   - PostgreSQL as root"
+            echo "  cache | redis  - Redis"
             echo
             echo "Options:"
             echo "  -h  --help          This help message"
@@ -46,21 +47,31 @@ else
     shell="bash"
 fi
 
+docker_flags=
+docker_required=
+
 case $shell in
     bash)
-        cmd="$target bash"
+        cmd=bash
+        docker_required=1
         ;;
     sudo)
-        cmd="-u root $target bash"
+        cmd=bash
+        docker_flags+=" -u root"
+        docker_required=1
         ;;
     py|python)
-        cmd="app ./manage.py shell_plus"
+        cmd="./manage.py shell_plus"
+        target=app
         ;;
     sql|psql)
-        cmd="-u root db psql -U postgres"
+        cmd="psql -U postgres"
+        target=db
+        docker_flags+=" -u root"
         ;;
-    redis)
-        cmd="redis redis-cli"
+    cache|redis)
+        cmd=redis-cli
+        target=cache
         ;;
     *)
         cecho "You must provide a valid shell type. Please see '$(basename $0) --help' for more information." red bold
@@ -68,5 +79,11 @@ case $shell in
         ;;
 esac
 
-
-docker-compose exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" $cmd
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW $target) ]; then
+    docker-compose exec -e COLUMNS="`tput cols`" -e LINES="`tput lines`" $docker_flags $target $cmd
+elif [ "$docker_required" ]; then
+    cecho "Cannot run console '$shell' on target '$target' while DEV_DOCKER_WORKFLOW set as '$DEV_DOCKER_WORKFLOW'. Please review your .env file." red bold
+    exit 1
+else
+    $cmd
+fi

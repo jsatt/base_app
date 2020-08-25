@@ -1,0 +1,65 @@
+#!/bin/bash
+set -e
+script_base=$(dirname "$0")
+cd $script_base/../..
+
+source $script_base/../tools
+
+detach=
+port=8080
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -d|--detach)
+            detach=-d
+            ;;
+        -p|--port)
+            port=$2
+            shift
+            ;;
+        -h|--help|?)
+            if [ "$2" != "quiet" ]; then
+                echo "A web-based administration tool for databases."
+                echo
+                cecho "Usage: run_util $(basename $0) <options>" default bold
+                echo
+            else
+                echo "dbadmin"
+                echo "-------"
+                echo "Adminer - A web-based administration tool for databases."
+            fi
+            echo "Options:"
+            echo "  -d  --detach        Run utility in the background"
+            echo "  -p  --port          Specify port Adminer will be exposed on"
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+if [ "$DEV_DOCKER_WORKFLOW" == "none" ]; then
+    cecho "This utility requires docker to run. Please review your .env file." red bold
+    exit 1
+fi
+
+plugin_path=$(resolve_path $script_base/../../docker/utils/adminer/plugins/)
+cecho "Starting DB Adminer..." default bold
+cecho "http://localhost:$port" green bold
+docker run --rm \
+    --name dbadmin \
+    -p $port:8080 \
+    #--network base_app_default \
+    --mount type=bind,source=$plugin_path/fill-login-form.php,target=/var/www/html/plugins-enabled/fill-login-form.php \
+    -e "ADMINER_SYSTEM=pgsql" \
+    -e "ADMINER_SERVER=db" \
+    -e "ADMINER_USER=postgres" \
+    -e "ADMINER_PASSWORD=postgres" \
+    -e "ADMINER_DB=base_app" \
+    $detach \
+    adminer

@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 force=
 no_input=
@@ -19,7 +20,7 @@ while [[ $# -gt 0 ]]; do
             no_input=1
             ;;
         -h|--help|?)
-            echo "Shutdowns all instances of this repository and deletes all related containers,"
+            echo "Shuts down all instances of this repository and deletes all related containers,"
             echo "images, volumes and networks."
             echo
             cecho "Usage: $(basename $0) <options>" default bold

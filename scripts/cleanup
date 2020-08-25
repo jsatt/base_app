@@ -1,20 +1,17 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 no_input=
-docker=
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
-        -d|--docker)
-            docker=1
-            ;;
         -y|--no-input)
             no_input=1
             ;;
@@ -22,9 +19,6 @@ while [[ $# -gt 0 ]]; do
             echo "Clean up build files, caches and excess Docker artifacts."
             echo
             cecho "Usage: $(basename $0) <options>" default bold
-            echo
-            echo "Services:"
-            echo "$(docker-compose config --services)"
             echo
             echo "Options:"
             echo "  -y  --no-input      Assume yes for all user input"
@@ -50,20 +44,20 @@ if [ ! "$no_input" ]; then
     fi
 fi
 
-echo
-cecho "Stopping running services..." default bold
-$script_base/stop
+if [ "$(which docker)" ] && [ ! "$DEV_DOCKER_WORKFLOW" = "none" ]; then
+    echo
+    cecho "Stopping running services..." default bold
+    $script_base/stop -q
 
-echo
-cecho "Deleting python cache files..." default bold
-find . \( -type f -name "*.pyc" -o -type d -name __pycache__ \) -delete
-
-if [ "$(which docker)" ]; then
     echo
     cecho "Deleting stopped Docker images, cache and dangling images..." default bold
     docker system prune -f
 
     echo
-    cecho "Dropping static file and Redis volumes..." default bold
-    docker volume rm -f base_app_python-packages
+    cecho "Dropping cache data volumes..." default bold
+    docker volume rm -f base_app_cache-data
 fi
+
+echo
+cecho "Deleting python cache files..." default bold
+find . \( -type f -name "*.pyc" -o -type d -name __pycache__ \) -delete

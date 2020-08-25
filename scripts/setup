@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 script_base=$(dirname "$0")
+source $script_base/tools
 cd $script_base/..
 
-source $script_base/tools
+load_env
 
 skip_install=
 skip_db=
@@ -37,6 +38,13 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}"
 
+if [ "$DEV_DOCKER_WORKFLOW" == "none" ]; then
+    cecho "This setup script currently only supports setup when using Docker either to run" red bold
+    cecho "the entire app or just dependencies. You will need to manually setup your environment." red bold
+    cecho "If you intend to use Docker, please review your .env file." red bold
+    exit 1
+fi
+
 if [ ! "$skip_install" ]; then
     case $(detect_platform) in
         OSX|OSX_BREW)
@@ -64,5 +72,5 @@ docker-compose build
 if [ ! "$skip_db" ]; then
     echo
     cecho "Populating database..." blue bold
-    $script_base/restore_db -y --skip-check
+    $script_base/restore_db -y
 fi
