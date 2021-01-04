@@ -1,0 +1,87 @@
+#!/bin/bash
+set -e
+script_base=$(dirname "$0")
+source $script_base/../tools
+cd $script_base/../..
+
+load_env
+
+database=base_app
+output=
+nozip=
+dump_all=
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -d|--database)
+            database=$2
+            shift
+            ;;
+        -a|--all)
+            dump_all=1
+            ;;
+        -o|--output)
+            output=$2
+            shift
+            ;;
+        -n|--nozip)
+            nozip=1
+            ;;
+        -h|--help|?)
+            if [ "$2" != "quiet" ]; then
+                echo "Dump contents of the database to a file"
+                echo
+                cecho "Usage: run_util $(basename $0) <options>" default bold
+                echo
+            else
+                echo "pgdump"
+                echo "------"
+                echo "pg_dump - Dump contents of the database to a file"
+            fi
+            echo "Options:"
+            echo "  -d  --database      Database name to dump"
+            echo "  -a  --all           Dump all databases, ignores --database"
+            echo "  -o  --output        File to write output"
+            echo "  -n  --nozip         Don't gzip output"
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW db) ]; then
+    runner="docker-compose exec -u postgres db"
+else
+    runner=
+fi
+
+if [ ! "$output" ]; then
+    if [ "$dump_all" ]; then
+        database=full_database
+    fi
+    if [ "$nozip" ]; then
+        output=$database.sql
+    else
+        output=$database.sql.gz
+    fi
+fi
+
+if [ "$nozip" ]; then
+    if [ "$dump_all" ]; then
+        $runner pg_dumpall > $output
+    else
+        $runner pg_dump -U postgres -t public.* -O -c -x --if-exists -T spatial_ref_sys $database > $output
+    fi
+else
+    if [ "$dump_all" ]; then
+        $runner pg_dumpall | gzip > $output
+    else
+        $runner pg_dump -U postgres -t public.* -O -c -x --if-exists -T spatial_ref_sys $database | gzip > $output
+    fi
+fi

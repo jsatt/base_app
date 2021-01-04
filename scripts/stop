@@ -1,0 +1,71 @@
+#!/bin/bash
+set -e
+script_base=$(dirname "$0")
+source $script_base/tools
+cd $script_base/..
+
+load_env
+
+quiet=
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -h|--help|?)
+            echo "Stop all or specfic running Docker services."
+            echo
+            cecho "Usage: $(basename $0) [SERVICE...]" default bold
+            exit 0
+            ;;
+        -q|--quiet)
+            quiet=1
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+args=$@
+allowed=$(allowed_services $DEV_DOCKER_WORKFLOW)
+
+run_docker=
+docker_args=
+case $DEV_DOCKER_WORKFLOW in
+    full)
+        run_docker=1
+        docker_args=$args
+        ;;
+    deps)
+        if [ "$args" ]; then
+            services=
+            for svc in $allowed; do
+                if [[ " $args[@] " =~ $svc ]]; then
+                    services+=" $svc"
+                fi
+            done
+            if [ "$services" ]; then
+                run_docker=1
+                docker_args=$services
+            fi
+        else
+            if [ "$allowed" ]; then
+                run_docker=1
+                docker_args=$allowed
+            fi
+        fi
+        ;;
+    none)
+        ;;
+esac
+
+if [ "$run_docker" ]; then
+    docker-compose stop $docker_args
+elif [ ! "$quiet" ]; then
+    cecho "There are no services that can be managed using this script. Please launch the" red bold
+    cecho "service manually or review your .env file." red bold
+    exit 1
+fi

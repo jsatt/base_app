@@ -1,0 +1,77 @@
+#!/bin/bash
+script_base=$(dirname "$0")
+source $script_base/tools
+cd $script_base/..
+
+load_env
+
+fail_fast=
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -f|--fail-fast)
+            fail_fast=1
+            ;;
+        -h|--help|?)
+            echo "Run system and linting checks against repository."
+            echo
+            cecho "Usage: $(basename $0) <options>" default bold
+            echo
+            echo "Options:"
+            echo "  -f  --fail-fast     Stop running checks on the first failure."
+            echo "  -h  --help          This help message"
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+args=$@
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    runner="docker-compose run --rm --no-deps -e TESTING=True -e DJANGO_SETTINGS_MODULE=base_app.settings app"
+else
+    export TESTING=True
+    export DJANGO_SETTINGS_MODULE=base_app.settings
+    runner=""
+fi
+
+
+exit_status=0
+
+run_it(){
+    title=$1
+    cmd=$2
+
+    echo
+    cecho "Running $title..." blue bold
+
+    $runner $cmd
+    status=$?
+
+    echo
+    if [ "$status" -ne 0 ]; then
+        cecho "$title completed with failures: status $status" red bold
+        if [ "$fail_fast" ]; then
+            exit $status
+        else
+            if [ "$exit_status" -eq 0 ]; then
+                exit_status=$status
+            fi
+        fi
+    else
+        cecho "$title complete" green normal
+    fi
+}
+
+run_it "Django System Checks" "./manage.py check"
+run_it "Code Style Checks" "flake8"
+run_it "Linter" "prospector --tool pylint --messages-only --die-on-tool-error"
+run_it "Type Checking" "mypy ."
+run_it "Security Scan" "bandit --ini setup.cfg -r ."
+exit $exit_status

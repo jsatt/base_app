@@ -1,0 +1,12 @@
+**/__pycache__
+**/*.pyc
+.tox
+.vim/
+.vim*
+.git/
+*.sql
+*.sql.gz
+.mypy_cache/
+.pytest_cache/
+.ipython/
+docker-compose.yml

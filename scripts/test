@@ -1,0 +1,50 @@
+#!/bin/bash
+set -e
+script_base=$(dirname "$0")
+source $script_base/tools
+cd $script_base/..
+
+load_env
+
+flags="--nomigrations --capture=no"
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -w|--watch)
+            flags+=" --looponfail"
+            ;;
+        -n|--new-db)
+            flags+=" --create-db"
+            ;;
+        -c|--with-coverage)
+            flags+=" --cov"
+            ;;
+        -h|--help)
+            echo "Run unit tests."
+            echo
+            cecho "Usage: $(basename $0) <options> [<TEST TYPE>]" default bold
+            echo
+            echo "Options:"
+            echo "  -w  --watch         Rerun tests when changes are made"
+            echo "  -n  --new-db        Re-create database."
+            echo "  -h  --help          This help message"
+            echo
+            echo "Note: any additional options provided will be passed to pytest."
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$key")
+            ;;
+    esac
+    shift
+done
+set -- "${POSITIONAL[@]}"
+
+if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+    runner="docker-compose run --rm app"
+else
+    runner=
+fi
+$runner pytest $flags $@
