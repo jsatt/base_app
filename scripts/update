@@ -50,11 +50,12 @@ if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
     echo
     cecho "Rebuilding environment..." default bold
     docker-compose build
+    $script_base/install py --
 
 else
     echo
     cecho "Installing Python requirements..." default bold
-    pip install -r requirements.txt
+    $script_base/install py --
 fi
 
 echo

@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
                 cecho "Usage: run_util $(basename $0) <options>" default bold
                 echo
             else
-                echo "dbadmin"
+                echo $(basename $0)
                 echo "-------"
                 echo "Adminer - A web-based administration tool for databases."
             fi

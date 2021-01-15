@@ -39,7 +39,7 @@ services:
       - db
     tty: true
     ports:
-      - "${COMPOSE_WEB_PORT:-8002}:8000"
+      - "${COMPOSE_WEB_PORT:-8000}:8000"
 
   task_worker:
     <<: *app-common

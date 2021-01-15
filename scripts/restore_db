@@ -47,12 +47,12 @@ fi
 shopt -s nullglob
 dump_files=( docker/init/db/*.sql.gz docker/init/db/*.sql )
 if (( ! ${#dump_files[@]} )); then
-    cecho "No database dumps were found to restore from. Please retrieve a database dump file" red bold
-    cecho "and place it in $(resolve_path "$script_base/../docker/init/db")." red bold
-    if [ "$no_input"]; then
+    cecho "No database dumps were found to restore from. Please retrieve a database dump file" yellow bold
+    cecho "and place it in $(resolve_path "$script_base/../docker/init/db") to perform a restore." yellow bold
+    if [ "$no_input" ]; then
         exit 1
     else
-        cecho "Otherwise the database will be created empty." red bold
+        cecho "Otherwise the database will be created empty." yellow bold
         read -n1 -r -p "Press 'Y' to continue or any other key to cancel..." key1
         echo
 

@@ -72,9 +72,10 @@ install
 -------
 
 This is intended to abstract away a large number of complexities when working with the project. You
-should specify whether you installing a Python or System (apt) package and this script will take
-the appropriate steps to make sure the package is installed and added to the correct requirements
-file. You can provide the `--dev` and `--no-save` flags to modify this functionality as needed.
+should specify whether you installing a Python (py) or System (apt) package and this script will
+take the appropriate steps to make sure the package is installed and added to the correct
+requirements file. You can provide the `--dev` and `--no-save` flags to modify this functionality
+as needed.
 
 Supported Workflows: `full`, partial for `deps` and `none`
 

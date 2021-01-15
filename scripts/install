@@ -82,9 +82,9 @@ case $install_type in
                 flags+=" --no-interaction"
             fi
             if [ "$no_pkg" ]; then
-                $runner pip install $flags $args
+                $runner poetry install $flags $args
             else
-                $runner pip install $flags $args
+                $runner poetry add $flags $args
             fi
         fi
         ;;

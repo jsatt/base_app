@@ -43,8 +43,9 @@ done
 set -- "${POSITIONAL[@]}"
 
 if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
-    runner="docker-compose run --rm app"
+    runner="docker-compose run --rm -e TESTING=True app"
 else
+    export TESTING=True
     runner=
 fi
 $runner pytest $flags $@

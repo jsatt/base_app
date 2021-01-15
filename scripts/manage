@@ -6,29 +6,6 @@ cd $script_base/..
 
 load_env
 
-POSITIONAL=()
-while [[ $# -gt 0 ]]; do
-    key="$1"
-    case $key in
-        -h|--help|?)
-            echo "Execute Django's manage.py script in the configured environment."
-            echo
-            cecho "Usage: $(basename $0) [args...]" default bold
-            echo
-            echo "Options:"
-            echo "  -h  --help          This help message"
-            echo
-            echo "All other args are passed directly to manage.py"
-            exit 0
-            ;;
-        *)
-            POSITIONAL+=("$key")
-            ;;
-    esac
-    shift
-done
-set -- "${POSITIONAL[@]}"
-
 if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
     runner="docker-compose run --rm app"
 else

@@ -6,6 +6,8 @@ cd $script_base/..
 load_env
 
 fail_fast=
+tools=(django pep lint type secure)
+docker_name=eligibility_check
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -14,14 +16,28 @@ while [[ $# -gt 0 ]]; do
         -f|--fail-fast)
             fail_fast=1
             ;;
+        -t|--tools)
+            IFS="," read -r -a tools <<< $2
+            shift
+            ;;
         -h|--help|?)
             echo "Run system and linting checks against repository."
             echo
-            cecho "Usage: $(basename $0) <options>" default bold
+            cecho "Usage: $(basename $0) <options> [<TOOL>...]" default bold
             echo
             echo "Options:"
-            echo "  -f  --fail-fast     Stop running checks on the first failure."
-            echo "  -h  --help          This help message"
+            echo "  -f  --fail-fast             Stop running checks on the first failure."
+            echo "  -t  --tools [<TOOL>...]     Specify which tools to run as, comma separated list. All are run by default."
+            echo "  -h  --help                  This help message"
+            echo
+            echo "Tools:"
+            echo "  django              Django System checks"
+            echo "  pep                 Code Style Checks (pep8, pyflakes, etc)"
+            echo "  lint                Linter (pylint)"
+            echo "  type                Type Checking (mypy)"
+            echo "  secure            Security Scan (bandit)"
+            echo
+            echo "  All tools are run by default."
             exit 0
             ;;
         *)
@@ -33,45 +49,71 @@ done
 set -- "${POSITIONAL[@]}"
 
 args=$@
-if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
-    runner="docker-compose run --rm --no-deps -e TESTING=True -e DJANGO_SETTINGS_MODULE=base_app.settings app"
-else
-    export TESTING=True
-    export DJANGO_SETTINGS_MODULE=base_app.settings
-    runner=""
-fi
 
-
-exit_status=0
-
-run_it(){
-    title=$1
-    cmd=$2
-
-    echo
-    cecho "Running $title..." blue bold
-
-    $runner $cmd
-    status=$?
-
-    echo
-    if [ "$status" -ne 0 ]; then
-        cecho "$title completed with failures: status $status" red bold
-        if [ "$fail_fast" ]; then
-            exit $status
-        else
-            if [ "$exit_status" -eq 0 ]; then
-                exit_status=$status
-            fi
-        fi
+startup(){
+    if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+        cecho "Starting Docker container..." blue bold
+        docker-compose run --name $docker_name -d --no-deps -e TESTING=True -e DJANGO_SETTINGS_MODULE=base_app.settings app bash -c "sleep infinity"
     else
-        cecho "$title complete" green normal
+        export TESTING=True
+        export DJANGO_SETTINGS_MODULE=base_app.settings
     fi
 }
 
-run_it "Django System Checks" "./manage.py check"
-run_it "Code Style Checks" "flake8"
-run_it "Linter" "prospector --tool pylint --messages-only --die-on-tool-error"
-run_it "Type Checking" "mypy ."
-run_it "Security Scan" "bandit --ini setup.cfg -r ."
-exit $exit_status
+
+exit_status=0
+teardown_progress=
+
+run_it(){
+    name=$1
+    title=$2
+    cmd=$3
+
+    if [[ " ${tools[@]} " =~ " $1 " ]]; then
+        echo
+        cecho "Running $title..." blue bold
+
+        if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+            docker exec $docker_name $cmd
+        else
+            $cmd
+        fi
+        status=$?
+
+        echo
+        if [ "$status" -ne 0 ]; then
+            cecho "$title completed with failures: status $status" red bold
+            if [ "$fail_fast" ]; then
+                exit_status=$status
+                exit
+            else
+                if [ "$exit_status" -eq 0 ]; then
+                    exit_status=$status
+                fi
+            fi
+        else
+            cecho "$title complete" green normal
+        fi
+    fi
+}
+
+teardown() {
+    if [ ! "$teardown_progress" ]; then
+        teardown_progress=1
+        if [ $(can_run_docker $DEV_DOCKER_WORKFLOW app) ]; then
+            echo
+            cecho "Shutting down Docker container..." blue bold
+            docker stop $docker_name
+            docker rm $docker_name
+        fi
+        exit $exit_status
+    fi
+}
+trap "teardown" INT EXIT
+
+startup
+run_it django "Django System Checks" "./manage.py check"
+run_it pep "Code Style Checks" "flake8"
+run_it lint "Linter" "prospector --tool pylint --messages-only --die-on-tool-error"
+run_it "type" "Type Checking" "mypy ."
+run_it secure "Security Scan" "bandit --ini setup.cfg -r ."
