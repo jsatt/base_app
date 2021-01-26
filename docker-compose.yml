@@ -14,8 +14,9 @@ x-common: &app-common
     DATABASE_USER: postgres
     DATABASE_PASSWORD: postgres
     CACHE_URL: redis://cache:6379/0
-    CELERY_BROKER_URL: redis://cache:6379/1
-    CELERY_RESULT_BACKEND: redis://cache:6379/2
+    SESSION_CACHE_URL: redis://cache:6379/1
+    CELERY_BROKER_URL: redis://cache:6379/2
+    CELERY_RESULT_BACKEND: redis://cache:6379/3
   user: ${UID:-app_user}
   volumes:
     - ${COMPOSE_APP_PATH:-.}:/usr/src/app:delegated

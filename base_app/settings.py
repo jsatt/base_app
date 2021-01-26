@@ -29,6 +29,8 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[BASE_URL])
 # Databases
 DATABASES = {
     'default': env.db_opts('DATABASE_URL', default="sqlite://:memory:", options={
+        'USER': env.str('DATABASE_USER', default='postgres'),
+        'PASSWORD': env.str('DATABASE_PASSWORD', default='postgres'),  # needed in case password has non-URL safe chars
         'CONN_MAX_AGE': env.int('DATABASE_CONNECTION_AGE', default=600),
     }),
 }
